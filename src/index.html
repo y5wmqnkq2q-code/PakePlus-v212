@@ -1,32 +1,1434 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>交货提醒系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8f9fa; padding: 20px; color: #333; }
+        .editable-color, .editable-quantity, .editable-delivered { cursor: pointer; transition: all 0.2s; }
+        .editable-color:hover, .editable-quantity:hover, .editable-delivered:hover { background: #e3f2fd; border-radius: 4px; transition: all 0.2s ease-in-out; }
+        .inline-edit-input { border: 2px solid #007bff; border-radius: 4px; transition: border-color 0.2s ease; }
+        .no-records { text-align: center; color: #6c757d; padding: 50px 20px; font-size: 16px; background: #f8f9fa; border-radius: 8px; margin-top: 15px; }
+        .customer-cell { background: #e9ecef; font-weight: bold; color: #343a40; padding: 12px; border-radius: 6px; margin: 10px 0; }
+        /* 操作按钮样式 */
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            outline: none;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .action-btn:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+        
+        .edit-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+        
+        .delete-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .highlight-btn {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .highlight-btn.active {
+            background-color: #f8bbd0;
+            color: #c2185b;
+        }
+        
+        .highlight-btn:hover {
+            background-color: #fce4ec;
+        }
+        
+        /* 交货状态样式 */
+        .due-soon {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        /* 通知样式 */
+        #notification {
+            min-width: 250px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* 表单错误样式 */
+        .error-message {
+            font-size: 0.875rem;
+            line-height: 1.25;
+        }
+        
+        /* 表格行过渡效果 */
+        .record-row {
+            transition: all 0.2s ease;
+        }
+        
+        /* 优化输入框样式 */
+        input.form-control:focus,
+        select.form-control:focus,
+        textarea.form-control:focus {
+            border-color: #2196F3;
+            box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
+        }
+        
+        /* 按钮点击反馈 */
+        button:focus {
+            outline: none;
+        }
+        
+        /* 统计卡片悬停效果 */
+        .stats-card:hover {
+            transform: translateY(-2px);
+        }
+        /* 增强选择器特异性，使用更协调的粉色 */
+        table.table tbody tr.record-row.manually-highlighted {
+            background-color: #f8bbd0 !important; /* 更柔和的粉色背景 */
+            color: #c2185b !important; /* 协调的文字颜色 */
+            border: 1px solid #f48fb1;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(248, 187, 208, 0.5);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 覆盖表格行的默认背景色 */
+        table.table tbody tr.record-row.manually-highlighted td {
+            background-color: transparent !important;
+            color: #c2185b !important;
+            border-color: #f48fb1;
+        }
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
-            <form class="row" id="greet-form">
-                <input id="inputValue" placeholder="Enter a something..." />
-            </form>
-            <div class="resultBox">
-                <span>result: </span>
-                <span id="result"></span>
+        .manually-highlighted .editable-color:hover,
+        .manually-highlighted .editable-quantity:hover,
+        .manually-highlighted .editable-delivered:hover {
+            background-color: rgba(227, 242, 253, 0.5);
+        }
+        /* 确保操作按钮始终可点击 */
+        .action-btn {
+            position: relative;
+            z-index: 10; /* 确保按钮在最高层级 */
+            outline: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+            padding: 0 8px;
+        }
+        .progress-bar { width: 100px; height: 6px; background: #ddd; border-radius: 3px; overflow: hidden; margin: 0 auto; display: inline-block; vertical-align: middle; }
+        .progress-fill { height: 100%; background: #28a745; transition: width 0.3s; }
+        .progress-fill.warning { background: #ffc107; }
+        .progress-fill.danger { background: #dc3545; }
+        .stats-card { text-align: center; font-size: 1.5em; font-weight: bold; color: #007bff; transition: transform 0.2s ease; } 
+        .stats-card:hover { transform: scale(1.05); } 
+        .stats-card-container { transition: transform 0.3s ease, box-shadow 0.3s ease; margin-bottom: 15px; } 
+        .stats-card-container:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1); }
+        /* 确保统计卡片在一行显示 */
+        .stats-row { display: flex; gap: 15px; }
+        .stats-row > div { flex: 1; min-width: 0; }
+        .delivery-status { 
+            font-size: 12px; 
+            font-weight: bold; 
+            margin-top: 2px; 
+            text-align: center; 
+            text-transform: uppercase; 
+            color: #555; 
+            padding: 3px 8px; 
+            border-radius: 4px; 
+            display: inline-block; 
+        }
+        .delivery-status.completed { color: #28a745; }
+        .delivery-status.pending { color: #ffc107; }
+        .delivery-status.delayed { color: #dc3545; font-weight: bold; }
+
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .card { margin-bottom: 15px; }
+            .btn { font-size: 14px; }
+            .form-control { font-size: 14px; }
+            .stats-card { font-size: 1.2em; }
+            .row > div { padding: 2px; }
+            .form-control, .btn { font-size: 14px; padding: 6px; }
+            .action-btn { padding: 2px 4px; font-size: 12px; }
+            /* 不隐藏任何列，确保状态列和备注列都能正常显示 */
+            .progress-bar { width: 60px; }
+            .customer-cell { font-size: 14px; padding: 10px 0; }
+            .stats-card { font-size: 1em; }
+        }
+
+        /* 导入导出按钮样式 */
+        .import-export-group { 
+            margin: 15px 0; 
+            display: flex; 
+            gap: 12px; 
+            flex-wrap: wrap; 
+            align-items: center; 
+        }
+        .import-export-group button, .import-export-group input { 
+            font-size: 14px; 
+            padding: 8px 12px; 
+            transition: all 0.2s ease; 
+            border-radius: 6px; 
+        }
+        /* 加载指示器样式 */
+        #loadingIndicator {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">交货提醒系统</h1>
+        
+        <!-- 导入导出区域 -->
+        <div class="import-export-group">
+            <button id="exportCSV" class="btn btn-success btn-sm"><i class="fas fa-file-export mr-1"></i> 导出CSV</button>
+            <button id="exportJSON" class="btn btn-info btn-sm"><i class="fas fa-database mr-1"></i> 数据备份</button>
+            <label class="btn btn-secondary btn-sm">
+                <i class="fas fa-file-import mr-1"></i> 导入JSON
+                <input id="importData" type="file" accept=".json" style="display: none;" />
+            </label>
+            <label class="btn btn-secondary btn-sm">
+                <i class="fas fa-table mr-1"></i> 导入CSV
+                <input id="importCSV" type="file" accept=".csv" style="display: none;" />
+            </label>
+        </div>
+        
+        <!-- 添加表单 -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4><i class="fas fa-plus-circle mr-2"></i>添加记录</h4>
             </div>
-            <div class="invokeBox">
-                <button id="openUrl">open_url_browser</button>
-                <button id="openUrlNew">open_url_new</button>
-                <button id="runCommand">run_command</button>
-                <button id="downloadFile">download_file</button>
-                <button id="getExeDir">get_exe_dir</button>
-                <button id="getEnvVar">get_env_var</button>
-                <button id="findPort">find_port</button>
+            <div class="card-body">
+                <form id="deliveryForm" class="row d-flex items-center gap-2 mb-2">
+                    <!-- 所有字段和按钮在同一行 -->
+                    <div class="col-auto">
+                        <label class="form-label mb-1">客户名称 *</label>
+                        <input type="text" id="customerName" class="form-control" placeholder="客户名称" required style="min-width: 150px;">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label mb-1">产品名称 *</label>
+                        <input type="text" id="productName" class="form-control" placeholder="产品名称" required style="min-width: 150px;">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label mb-1">色号 *</label>
+                        <input type="text" id="colorCode" class="form-control" placeholder="色号" required style="min-width: 80px;">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label mb-1">数量(KG) *</label>
+                        <input type="number" id="quantity" class="form-control" placeholder="数量" min="0.1" step="0.1" required style="min-width: 80px;">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label mb-1">交货日期 *</label>
+                        <input type="date" id="deliveryDate" class="form-control" required style="min-width: 150px;">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label mb-1">备注</label>
+                        <input type="text" id="notes" class="form-control" placeholder="请输入备注信息（选填）" style="min-width: 200px;">
+                    </div>
+                    <div class="col-auto align-self-end" style="margin-bottom: 0.5rem;">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save mr-1"></i> 保存记录
+                        </button>
+                    </div>
+                </form>
             </div>
-        </main>
-    </body>
+        </div>
+        
+        <!-- 筛选条件卡片 -->
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h4><i class="fas fa-filter mr-2"></i>筛选条件</h4>
+            </div>
+            <div class="card-body">
+                <div class="row d-flex items-center gap-1">
+                    <div class="col-auto">
+                        <input type="text" id="filterCustomer" class="form-control" placeholder="筛选客户" style="min-width: 150px;">
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" id="filterProduct" class="form-control" placeholder="筛选产品" style="min-width: 150px;">
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" id="filterColor" class="form-control" placeholder="色号" style="min-width: 80px;">
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" id="filterQuantity" class="form-control" placeholder="数量" style="min-width: 80px;">
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" id="filterDelivery" class="form-control" placeholder="交货日期" style="min-width: 150px;">
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" id="filterRecordTime" class="form-control" placeholder="记录时间" style="min-width: 150px;">
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" id="filterDaysLeft" class="form-control" placeholder="剩余天数" style="min-width: 80px;">
+                    </div>
+                    <div class="col-auto">
+                        <button id="clearFilters" class="btn btn-secondary">
+                            <i class="fas fa-times mr-1"></i> 清除
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 统计卡片 -->
+        <div class="row stats-row mb-4">
+            <div class="col stats-card-container">
+                <div class="card stats-card h-100">
+                    <div class="card-body">
+                        <i class="fas fa-list text-primary mb-2"></i>
+                        <p class="text-muted">总记录数</p>
+                        <div class="text-2xl font-bold text-primary" id="totalRecords">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col stats-card-container">
+                <div class="card stats-card h-100">
+                    <div class="card-body">
+                        <i class="fas fa-exclamation-triangle text-warning mb-2"></i>
+                        <p class="text-muted">即将到期</p>
+                        <div class="text-2xl font-bold text-warning" id="dueSoonCount">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col stats-card-container">
+                <div class="card stats-card h-100">
+                    <div class="card-body">
+                        <i class="fas fa-star text-danger mb-2"></i>
+                        <p class="text-muted">已标红</p>
+                        <div class="text-2xl font-bold text-danger" id="highlightedCount">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 表格容器 -->
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h4><i class="fas fa-table mr-2"></i>交货数据列表</h4>
+            </div>
+            <div class="card-body">
+                <div id="loadingIndicator" style="display: none;">
+                    <i class="fas fa-spinner fa-spin mr-2"></i> 加载中...
+                </div>
+                <table class="table table-hover table-responsive">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>客户名称</th>
+                            <th>产品名称</th>
+                            <th>色号</th>
+                            <th>数量(KG)</th>
+                            <th>已交货(KG)</th>
+                            <th>还差(KG)</th>
+                            <th>交货日期</th>
+                            <th>登记日期</th>
+                            <th>剩余天数</th>
+                            <th>状态</th>
+                            <th>进度</th>
+                            <th>备注</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- 表格数据将通过JavaScript动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('页面DOM加载完成，开始初始化...');
+        
+        // DOM元素
+        const form = document.getElementById('deliveryForm');
+        const tableBody = document.getElementById('tableBody');
+        const filterCustomer = document.getElementById('filterCustomer');
+        const filterProduct = document.getElementById('filterProduct');
+        const filterColor = document.getElementById('filterColor');
+        const filterQuantity = document.getElementById('filterQuantity');
+        const filterDelivery = document.getElementById('filterDelivery');
+        const filterRecordTime = document.getElementById('filterRecordTime');
+        const filterDaysLeft = document.getElementById('filterDaysLeft');
+        const clearFilters = document.getElementById('clearFilters');
+        const totalRecords = document.getElementById('totalRecords');
+        const dueSoonCount = document.getElementById('dueSoonCount');
+        const highlightedCount = document.getElementById('highlightedCount');
+        
+        // 数据存储
+        let deliveries = [];
+        
+        // 通知提示函数
+        function showNotification(message, type = 'info') {
+            let notification = document.getElementById('notification');
+            if (notification) {
+                notification.remove();
+            }
+            
+            notification = document.createElement('div');
+            notification.id = 'notification';
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full`;
+            
+            if (type === 'success') {
+                notification.classList.add('bg-success', 'text-white');
+                notification.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${message}`;
+            } else if (type === 'error') {
+                notification.classList.add('bg-danger', 'text-white');
+                notification.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${message}`;
+            } else if (type === 'warning') {
+                notification.classList.add('bg-warning', 'text-white');
+                notification.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i>${message}`;
+            } else {
+                notification.classList.add('bg-info', 'text-white');
+                notification.innerHTML = `<i class="fas fa-info-circle mr-2"></i>${message}`;
+            }
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 10);
+            
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // 生成唯一 ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+
+        // 根据 ID 获取索引 - 使用宽松比较以处理类型不匹配问题
+        function getIndexById(id) {
+            // 尝试转换为数字类型进行比较，解决字符串和数字不匹配的问题
+            const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+            return deliveries.findIndex(d => d.id === numericId || d.id == id);
+        }
+
+        // 更新统计信息
+        function updateStats(total, dueSoon, highlighted) {
+            totalRecords.textContent = total;
+            dueSoonCount.textContent = dueSoon;
+            highlightedCount.textContent = highlighted;
+        }
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function() {
+                const context = this;
+                const args = arguments;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+
+        // 响应式优化
+        function handleResize() {
+            const cards = document.querySelectorAll('.stats-card-container');
+            if (window.innerWidth < 768) {
+                cards.forEach(card => {
+                    card.classList.add('mb-2');
+                });
+            } else {
+                cards.forEach(card => {
+                    card.classList.remove('mb-2');
+                });
+            }
+        }
+
+        // 加载数据
+        function loadData() {
+            console.log('尝试从localStorage加载数据...');
+            try {
+                const savedData = localStorage.getItem('deliveries');
+                if (savedData) {
+                    deliveries = JSON.parse(savedData) || [];
+                    console.log('成功解析数据，记录数量:', deliveries.length);
+                    
+                    // 数据结构修复
+                    deliveries.forEach(item => {
+                        if (!item.id) item.id = generateId();
+                        if (item.highlight === undefined) item.highlight = false;
+                        if (item.deliveredQuantity === undefined) item.deliveredQuantity = '0.0';
+                        if (item.quantity && typeof item.quantity === 'string') {
+                            item.quantity = parseFloat(item.quantity).toFixed(1);
+                        }
+                        // 确保notes属性存在且不是状态值
+                        if (item.notes === undefined) item.notes = '';
+                        // 防止状态值被错误赋值给notes
+                        const statusValues = ['completed', 'delayed', 'pending', '已完成', '延误', '未完成', '即将到期', '进行中'];
+                        if (statusValues.includes(item.notes)) {
+                            item.notes = '';
+                        }
+                        // 确保notes是字符串类型
+                        item.notes = String(item.notes || '');
+                    });
+                    
+                    // 保存修复后的数据
+                    localStorage.setItem('deliveries', JSON.stringify(deliveries));
+                }
+            } catch (error) {
+                console.error('数据加载失败:', error);
+                showNotification('数据加载出错', 'error');
+                
+                // 尝试从备份恢复
+                try {
+                    const backup = localStorage.getItem('deliveries_backup');
+                    if (backup) {
+                        deliveries = JSON.parse(backup);
+                        localStorage.setItem('deliveries', JSON.stringify(deliveries));
+                        showNotification('已从备份恢复数据', 'warning');
+                    }
+                } catch (e) {
+                    console.error('备份恢复失败:', e);
+                }
+            }
+        }
+
+        // 保存数据
+        function saveData() {
+            try {
+                localStorage.setItem('deliveries', JSON.stringify(deliveries));
+                return true;
+            } catch (error) {
+                console.error('保存数据失败:', error);
+                showNotification('保存数据失败', 'error');
+                return false;
+            }
+        }
+
+        // 渲染表格
+        function renderTable() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            loadingIndicator.style.display = 'block';
+            
+            setTimeout(() => {
+                tableBody.innerHTML = '';
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                
+                let countDueSoon = 0;
+                let countHighlighted = 0;
+
+                // 筛选逻辑
+                const fc = filterCustomer.value.trim().toLowerCase();
+                const fp = filterProduct.value.trim().toLowerCase();
+                const fco = filterColor.value.trim().toLowerCase();
+                const fq = filterQuantity.value.trim();
+                const fd = filterDelivery.value.trim();
+                const frt = filterRecordTime.value.trim().toLowerCase();
+                const fdl = filterDaysLeft.value.trim();
+
+                const filtered = deliveries.filter(item => {
+                    // 基础筛选
+                    const matchCustomer = !fc || item.customerName.toLowerCase().includes(fc);
+                    const matchProduct = !fp || item.productName.toLowerCase().includes(fp);
+                    const matchColor = !fco || item.colorCode.toLowerCase().includes(fco);
+                    const matchRecordTime = !frt || item.recordTime.toLowerCase().includes(frt);
+
+                    // 数量筛选
+                    let matchQuantity = true;
+                    if (fq) {
+                        const qty = parseFloat(item.quantity);
+                        if (fq.startsWith('>')) {
+                            const val = parseFloat(fq.slice(1));
+                            matchQuantity = !isNaN(val) ? qty > val : true;
+                        } else if (fq.startsWith('<')) {
+                            const val = parseFloat(fq.slice(1));
+                            matchQuantity = !isNaN(val) ? qty < val : true;
+                        } else if (fq.includes('~')) {
+                            const [min, max] = fq.split('~').map(x => parseFloat(x.trim()));
+                            matchQuantity = (!isNaN(min) ? qty >= min : true) && (!isNaN(max) ? qty <= max : true);
+                        } else {
+                            const val = parseFloat(fq);
+                            matchQuantity = !isNaN(val) ? qty === val : true;
+                        }
+                    }
+
+                    // 交货日期筛选
+                    let matchDelivery = true;
+                    if (fd) {
+                        const delivery = item.deliveryDate;
+                        if (fd.startsWith('<') || fd.startsWith('>')) {
+                            const op = fd[0];
+                            const dateStr = fd.slice(1).trim();
+                            if (dateStr) {
+                                const compDate = new Date(dateStr);
+                                const itemDate = new Date(item.deliveryDate);
+                                if (op === '>' && itemDate <= compDate) matchDelivery = false;
+                                if (op === '<' && itemDate >= compDate) matchDelivery = false;
+                            }
+                        } else if (fd.includes('~')) {
+                            const [start, end] = fd.split('~').map(d => d.trim());
+                            if (start) {
+                                const startDate = new Date(start);
+                                const itemDate = new Date(item.deliveryDate);
+                                if (itemDate < startDate) matchDelivery = false;
+                            }
+                            if (end && matchDelivery) {
+                                const endDate = new Date(end);
+                                const itemDate = new Date(item.deliveryDate);
+                                if (itemDate > endDate) matchDelivery = false;
+                            }
+                        } else {
+                            matchDelivery = delivery.includes(fd);
+                        }
+                    }
+
+                    // 剩余天数筛选
+                    let matchDaysLeft = true;
+                    if (fdl) {
+                        const deliveryDate = new Date(item.deliveryDate);
+                        deliveryDate.setHours(0, 0, 0, 0);
+                        const timeDiff = deliveryDate - today;
+                        const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+
+                        if (fdl.startsWith('>')) {
+                            const val = parseInt(fdl.slice(1));
+                            matchDaysLeft = !isNaN(val) ? daysLeft > val : true;
+                        } else if (fdl.startsWith('<')) {
+                            const val = parseInt(fdl.slice(1));
+                            matchDaysLeft = !isNaN(val) ? daysLeft < val : true;
+                        } else if (fdl.includes('~')) {
+                            const [min, max] = fdl.split('~').map(x => parseInt(x.trim()));
+                            matchDaysLeft = (!isNaN(min) ? daysLeft >= min : true) && (!isNaN(max) ? daysLeft <= max : true);
+                        } else {
+                            const val = parseInt(fdl);
+                            matchDaysLeft = !isNaN(val) ? daysLeft === val : true;
+                        }
+                    }
+
+                    return matchCustomer && matchProduct && matchColor && matchQuantity && matchDelivery && matchRecordTime && matchDaysLeft;
+                });
+
+                // 无数据时显示提示
+                if (filtered.length === 0) {
+                    tableBody.innerHTML = `
+                    <tr class="no-records">
+                        <td colspan="12" class="text-center py-6">
+                            <div class="p-6 bg-light rounded-lg shadow-sm">
+                                <div class="text-4xl text-muted mb-3">📝</div>
+                                <h4 class="text-lg font-medium mb-2">暂无数据记录</h4>
+                                <p class="text-muted mb-4">点击上方的"添加记录"按钮开始录入数据</p>
+                                <button id="quick-add-btn" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-plus mr-1"></i> 快速添加
+                                </button>
+                            </div>
+                        </td>
+                    </tr>`;
+                    
+                    document.getElementById('quick-add-btn').addEventListener('click', function() {
+                        document.getElementById('customerName').focus();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    });
+                    
+                    updateStats(0, 0, 0);
+                    loadingIndicator.style.display = 'none';
+                    return;
+                }
+
+                // 按客户分组
+                const customerGroups = new Map();
+                filtered.forEach(item => {
+                    if (!customerGroups.has(item.customerName)) {
+                        customerGroups.set(item.customerName, []);
+                    }
+                    customerGroups.get(item.customerName).push(item);
+                });
+
+                // 渲染表格数据
+                for (const [customerName, records] of customerGroups) {
+                    // 客户分组标题
+                    const headerRow = document.createElement('tr');
+                    headerRow.innerHTML = `<td colspan="12" class="customer-cell"><i class="fas fa-user-tie me-2"></i> ${customerName} (共 ${records.length} 条)</td>`;
+                    tableBody.appendChild(headerRow);
+
+                    // 渲染每条记录
+                    records.forEach(record => {
+                        const deliveryDate = new Date(record.deliveryDate);
+                        deliveryDate.setHours(0, 0, 0, 0);
+                        const timeDiff = deliveryDate - today;
+                        const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+
+                        // 计算交货状态
+                        const delivered = parseFloat(record.deliveredQuantity);
+                        const total = parseFloat(record.quantity);
+                        
+                        // 检查是否延误：剩余天数小于-2（即超过原定期限2天以上）
+                        let status = 'pending';
+                        if (delivered >= total) {
+                            status = 'completed';
+                        } else if (daysLeft < -2) {
+                            status = 'delayed'; // 延误状态
+                        }
+
+                        // 统计计数
+                        if (daysLeft <= 5) countDueSoon++;
+                        if (record.highlight) countHighlighted++;
+
+                        // 创建表格行
+                        const row = document.createElement('tr');
+                        row.classList.add('record-row');
+
+                        // 添加高亮样式
+                        if (record.highlight) {
+                            row.classList.add('manually-highlighted');
+                        } else if (daysLeft <= 5) {
+                            row.classList.add('due-soon');
+                        }
+
+                        // 进度条样式
+                        let progressClass = 'progress-fill';
+                        if (daysLeft <= 2) progressClass += ' danger';
+                        else if (daysLeft <= 5) progressClass += ' warning';
+
+                        // 计算剩余数量
+                        const remaining = Math.max(0, total - delivered).toFixed(1);
+
+                        // 格式化登记日期
+                        const recordDate = new Date(record.recordTime || new Date()).toLocaleDateString('zh-CN');
+                        
+                        // 构建行内容
+                        row.innerHTML = `
+                            <td>${record.customerName}</td>
+                            <td>${record.productName}</td>
+                            <td class="editable-color" data-id="${record.id}" title="点击修改色号">${record.colorCode}</td>
+                            <td class="editable-quantity" data-id="${record.id}" title="点击修改数量">${record.quantity} KG</td>
+                            <td class="editable-delivered" data-id="${record.id}" title="双击编辑已交货数量">${delivered.toFixed(1)} KG</td>
+                            <td>${remaining} KG</td>
+                            <td class="editable-date" data-id="${record.id}" title="点击修改交货日期">${record.deliveryDate}</td>
+                            <td>${recordDate}</td>
+                            <td><strong>${daysLeft} 天</strong></td>
+                            <td>
+                                <div class="delivery-status ${status}">${status === 'completed' ? '已完成' : status === 'delayed' ? '延误' : '未完成'}</div>
+                            </td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="${progressClass}" style="width: ${Math.max(5, 100 - daysLeft * 5)}%"></div>
+                                </div>
+                            </td>
+                            <td>${record.notes || ''}</td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                        <button class="action-btn edit-btn" data-id="${record.id}"><i class="fas fa-edit"></i></button>
+                                        <button class="action-btn delete-btn" data-id="${record.id}"><i class="fas fa-trash"></i></button>
+                                        <button class="action-btn highlight-btn ${record.highlight ? 'active' : ''}" data-id="${record.id}"><i class="fas fa-star"></i></button>
+                                    </div>
+                            </td>
+                        `;
+
+                        tableBody.appendChild(row);
+                    });
+                }
+
+                // 更新统计信息
+                updateStats(filtered.length, countDueSoon, countHighlighted);
+                loadingIndicator.style.display = 'none';
+            }, 0);
+        }
+
+        // 表格行点击事件处理 - 使用简化版本确保在Electron环境中正常工作
+        tableBody.addEventListener('click', function(e) {
+            // 检查是否点击了编辑按钮
+            let target = e.target;
+            // 处理点击图标或按钮的情况
+            if (target.tagName === 'I' && target.parentElement.classList.contains('edit-btn')) {
+                target = target.parentElement;
+            }
+            
+            if (target.classList.contains('edit-btn')) {
+                try {
+                    // 获取ID并直接查找记录
+                    const id = target.getAttribute('data-id');
+                    if (!id) {
+                        console.warn('编辑按钮缺少ID属性');
+                        return;
+                    }
+                    
+                    // 确保deliveries数组存在
+                    if (!Array.isArray(deliveries)) {
+                        console.error('deliveries不是有效的数组');
+                        return;
+                    }
+                    
+                    // 直接遍历数组查找记录
+                    const recordIndex = deliveries.findIndex(d => d && d.id == id); // 添加额外的空值检查
+                    
+                    if (recordIndex !== -1 && deliveries[recordIndex]) {
+                        const currentNotes = deliveries[recordIndex].notes || '';
+                        
+                        // 创建自定义模态对话框
+                        const modal = document.createElement('div');
+                        modal.className = 'notes-modal';
+                        modal.innerHTML = `
+                            <div class="notes-modal-content">
+                                <div class="notes-modal-header">
+                                    <h3>编辑备注</h3>
+                                    <button class="notes-modal-close">&times;</button>
+                                </div>
+                                <div class="notes-modal-body">
+                                    <textarea id="notes-input" rows="5" style="width: 100%; resize: vertical;">${currentNotes}</textarea>
+                                </div>
+                                <div class="notes-modal-footer">
+                                    <button class="notes-modal-cancel">取消</button>
+                                    <button class="notes-modal-save">保存</button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // 添加模态框样式
+                        const style = document.createElement('style');
+                        style.textContent = `
+                            .notes-modal {
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                background-color: rgba(0, 0, 0, 0.5);
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                z-index: 10000;
+                            }
+                            .notes-modal-content {
+                                background-color: white;
+                                padding: 20px;
+                                border-radius: 5px;
+                                width: 90%;
+                                max-width: 500px;
+                                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                            }
+                            .notes-modal-header {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 15px;
+                            }
+                            .notes-modal-header h3 {
+                                margin: 0;
+                            }
+                            .notes-modal-close {
+                                background: none;
+                                border: none;
+                                font-size: 24px;
+                                cursor: pointer;
+                            }
+                            .notes-modal-body {
+                                margin-bottom: 15px;
+                            }
+                            .notes-modal-footer {
+                                display: flex;
+                                justify-content: flex-end;
+                                gap: 10px;
+                            }
+                            .notes-modal button {
+                                padding: 8px 16px;
+                                border: none;
+                                border-radius: 3px;
+                                cursor: pointer;
+                            }
+                            .notes-modal-save {
+                                background-color: #4CAF50;
+                                color: white;
+                            }
+                            .notes-modal-cancel {
+                                background-color: #f1f1f1;
+                            }
+                            #notes-input {
+                                padding: 10px;
+                                border: 1px solid #ddd;
+                                border-radius: 3px;
+                                font-family: inherit;
+                                font-size: 14px;
+                            }
+                        `;
+                        document.head.appendChild(style);
+                        document.body.appendChild(modal);
+                        
+                        // 设置文本框焦点
+                        const textarea = modal.querySelector('#notes-input');
+                        textarea.focus();
+                        
+                        // 关闭模态框函数
+                        function closeModal() {
+                            document.body.removeChild(modal);
+                            document.head.removeChild(style);
+                        }
+                        
+                        // 保存按钮点击事件
+                        modal.querySelector('.notes-modal-save').addEventListener('click', function() {
+                            const newNotes = textarea.value.trim();
+                            deliveries[recordIndex].notes = newNotes;
+                            
+                            // 保存数据并更新界面
+                            try {
+                                if (typeof saveData === 'function' && saveData()) {
+                                    if (typeof showNotification === 'function') {
+                                        showNotification('备注已更新', 'success');
+                                    }
+                                    if (typeof renderTable === 'function') {
+                                        renderTable();
+                                    }
+                                }
+                            } catch (saveErr) {
+                                console.error('保存数据失败:', saveErr);
+                            }
+                            
+                            closeModal();
+                        });
+                        
+                        // 取消按钮和关闭按钮点击事件
+                        modal.querySelector('.notes-modal-cancel').addEventListener('click', closeModal);
+                        modal.querySelector('.notes-modal-close').addEventListener('click', closeModal);
+                        
+                        // 按ESC键关闭模态框
+                        modal.addEventListener('keydown', function(e) {
+                            if (e.key === 'Escape') {
+                                closeModal();
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error('编辑备注过程中发生错误:', err);
+                    // 直接尝试使用alert作为最后的备选方案
+                    try {
+                        alert('编辑备注时发生错误，请重试');
+                    } catch (alertErr) {
+                        console.error('无法显示错误提示:', alertErr);
+                    }
+                }
+            }
+
+            // 删除记录
+            else if (e.target.closest('.delete-btn')) {
+                const btn = e.target.closest('.delete-btn');
+                const id = btn.getAttribute('data-id');
+                
+                if (confirm('确定要删除这条记录吗？')) {
+                    const index = getIndexById(id);
+                    if (index !== -1) {
+                        deliveries.splice(index, 1);
+                        if (saveData()) {
+                            showNotification('记录已删除', 'success');
+                            renderTable();
+                        }
+                    }
+                }
+            }
+
+            // 标红/取消标红
+            else if (e.target.closest('.highlight-btn')) {
+                const btn = e.target.closest('.highlight-btn');
+                const id = btn.getAttribute('data-id');
+                const index = getIndexById(id);
+                
+                if (index !== -1) {
+                    deliveries[index].highlight = !deliveries[index].highlight;
+                    if (saveData()) {
+                        showNotification(deliveries[index].highlight ? '已标红' : '已取消标红', 'success');
+                        renderTable();
+                    }
+                }
+            }
+
+                // 点击修改色号 - 内联编辑
+            else if (e.target.classList.contains('editable-color')) {
+                const cell = e.target;
+                const id = cell.getAttribute('data-id');
+                const index = getIndexById(id);
+                
+                if (index !== -1) {
+                    const currentValue = deliveries[index].colorCode;
+                    startInlineEdit(cell, currentValue, function(newValue) {
+                        if (newValue !== null && newValue.trim()) {
+                            deliveries[index].colorCode = newValue.trim();
+                            if (saveData()) {
+                                showNotification('色号已更新', 'success');
+                                renderTable();
+                                return true;
+                            }
+                        }
+                        return false;
+                    });
+                }
+            }
+
+            // 点击修改数量 - 内联编辑
+            else if (e.target.classList.contains('editable-quantity')) {
+                const cell = e.target;
+                const id = cell.getAttribute('data-id');
+                const index = getIndexById(id);
+                
+                if (index !== -1) {
+                    const currentValue = deliveries[index].quantity;
+                    startInlineEdit(cell, currentValue, function(newValue) {
+                        if (newValue !== null) {
+                            const numValue = parseFloat(newValue);
+                            if (!isNaN(numValue) && numValue > 0) {
+                                deliveries[index].quantity = numValue.toFixed(1);
+                                if (saveData()) {
+                                    showNotification('数量已更新', 'success');
+                                    renderTable();
+                                    return true;
+                                }
+                            } else {
+                                showNotification('请输入有效的数量', 'error');
+                            }
+                        }
+                        return false;
+                    }, 'number');
+                }
+            }
+            
+            // 点击修改交货日期 - 内联编辑
+            else if (e.target.classList.contains('editable-date')) {
+                const cell = e.target;
+                const id = cell.getAttribute('data-id');
+                const index = getIndexById(id);
+                
+                if (index !== -1) {
+                    const currentValue = deliveries[index].deliveryDate;
+                    startInlineEdit(cell, currentValue, function(newValue) {
+                        if (newValue !== null && newValue) {
+                            // 验证日期格式
+                            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+                            if (dateRegex.test(newValue)) {
+                                deliveries[index].deliveryDate = newValue;
+                                if (saveData()) {
+                                    showNotification('交货日期已更新', 'success');
+                                    renderTable(); // 重新渲染表格会自动更新剩余天数
+                                    return true;
+                                }
+                            } else {
+                                showNotification('请输入有效的日期格式', 'error');
+                            }
+                        } else {
+                            showNotification('交货日期不能为空', 'error');
+                        }
+                        return false;
+                    }, 'date');
+                }
+            }
+        });
+
+        // 双击编辑已交货数量 - 内联编辑
+        tableBody.addEventListener('dblclick', function(e) {
+            if (e.target.classList.contains('editable-delivered')) {
+                const cell = e.target;
+                const id = cell.getAttribute('data-id');
+                const index = getIndexById(id);
+                
+                if (index !== -1) {
+                    // 获取显示值（去掉KG后缀）
+                    const displayValue = cell.textContent.trim().replace(' KG', '');
+                    startInlineEdit(cell, displayValue, function(newValue) {
+                        if (newValue !== null) {
+                            const numValue = parseFloat(newValue);
+                            if (!isNaN(numValue) && numValue >= 0) {
+                                deliveries[index].deliveredQuantity = numValue.toFixed(1);
+                                if (saveData()) {
+                                    showNotification('已更新交货数量', 'success');
+                                    renderTable();
+                                    return true;
+                                }
+                            } else {
+                                showNotification('请输入有效的数量', 'error');
+                            }
+                        }
+                        return false;
+                    }, 'number');
+                }
+            }
+        });
+        
+        // 通用内联编辑函数
+        function startInlineEdit(cell, currentValue, saveCallback, type = 'text') {
+            // 保存原始内容，用于取消编辑时恢复
+            const originalContent = cell.innerHTML;
+            
+            // 创建输入框
+            const input = document.createElement('input');
+            input.type = type;
+            input.value = currentValue;
+            input.className = 'inline-edit-input form-control';
+            input.style.width = '100%';
+            input.style.height = '100%';
+            input.style.boxSizing = 'border-box';
+            
+            // 对于日期类型，设置最小日期为今天
+            if (type === 'date') {
+                input.min = new Date().toISOString().split('T')[0];
+            }
+            
+            // 清空单元格并添加输入框
+            cell.innerHTML = '';
+            cell.appendChild(input);
+            
+            // 自动聚焦输入框
+            input.focus();
+            input.select();
+            
+            // 处理失焦事件
+            input.addEventListener('blur', function() {
+                handleSave(input.value);
+            });
+            
+            // 处理键盘事件
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    // 阻止默认行为，防止表单提交
+                    e.preventDefault();
+                    handleSave(input.value);
+                } else if (e.key === 'Escape') {
+                    // 恢复原始内容
+                    cell.innerHTML = originalContent;
+                }
+            });
+            
+            // 保存处理函数
+            function handleSave(value) {
+                // 调用保存回调，如果成功则渲染表格，失败则恢复原始内容
+                const saved = saveCallback(value);
+                if (!saved) {
+                    // 如果保存失败，恢复原始内容
+                    cell.innerHTML = originalContent;
+                }
+            }
+        }
+
+        // 表单提交事件
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const customerName = document.getElementById('customerName').value.trim();
+            const productName = document.getElementById('productName').value.trim();
+            const colorCode = document.getElementById('colorCode').value.trim();
+            const quantity = document.getElementById('quantity').value;
+            const deliveryDate = document.getElementById('deliveryDate').value;
+            const notes = document.getElementById('notes').value.trim();
+
+            // 验证
+            if (!customerName || !productName || !colorCode || !quantity || !deliveryDate) {
+                showNotification('请填写必填字段', 'error');
+                return;
+            }
+
+            // 创建新记录
+            const newItem = {
+                id: generateId(),
+                customerName,
+                productName,
+                colorCode,
+                quantity: parseFloat(quantity).toFixed(1),
+                deliveryDate,
+                notes,
+                recordTime: new Date().toISOString(), // 登记日期（ISO格式，方便处理）
+                deliveredQuantity: '0.0',
+                highlight: false
+            };
+
+            deliveries.push(newItem);
+            if (saveData()) {
+                showNotification('添加成功', 'success');
+                form.reset();
+                renderTable();
+            }
+        });
+
+        // 筛选输入框事件
+        [filterCustomer, filterProduct, filterColor, filterQuantity, filterDelivery, filterRecordTime, filterDaysLeft].forEach(input => {
+            input.addEventListener('input', debounce(renderTable, 300));
+        });
+
+        // 清除筛选
+        clearFilters.addEventListener('click', function() {
+            filterCustomer.value = '';
+            filterProduct.value = '';
+            filterColor.value = '';
+            filterQuantity.value = '';
+            filterDelivery.value = '';
+            filterRecordTime.value = '';
+            filterDaysLeft.value = '';
+            renderTable();
+        });
+
+        // 导出CSV
+            document.getElementById('exportCSV').addEventListener('click', function() {
+                let csvContent = '客户名称,产品名称,色号,数量(KG),已交货数量(KG),还差数量(KG),交货日期,登记日期,剩余天数,状态,备注\n';
+            
+            const today = new Date();
+            deliveries.forEach(item => {
+                const deliveryDate = new Date(item.deliveryDate);
+                const daysLeft = Math.ceil((deliveryDate - today) / (1000 * 60 * 60 * 24));
+                const delivered = parseFloat(item.deliveredQuantity);
+                const total = parseFloat(item.quantity);
+                const remaining = Math.max(0, total - delivered).toFixed(1);
+                const status = delivered >= total ? '已完成' : (daysLeft <= 5 ? '即将到期' : '进行中');
+                
+                // 格式化登记日期
+                const recordDate = new Date(item.recordTime || new Date()).toLocaleDateString('zh-CN');
+                
+                const row = [
+                    '"' + item.customerName + '"',
+                    '"' + item.productName + '"',
+                    '"' + item.colorCode + '"',
+                    item.quantity,
+                    delivered.toFixed(1),
+                    remaining,
+                    item.deliveryDate,
+                    recordDate,
+                    daysLeft,
+                    '"' + status + '"',
+                    '"' + (item.notes || '') + '"'
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = '交货数据_' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showNotification('CSV导出成功', 'success');
+        });
+
+        // 导出JSON（备份）
+        document.getElementById('exportJSON').addEventListener('click', function() {
+            const dataStr = JSON.stringify(deliveries, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = '交货数据备份_' + new Date().toISOString().split('T')[0] + '.json';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showNotification('数据备份成功', 'success');
+        });
+
+        // 导入JSON
+        document.getElementById('importData').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const importedData = JSON.parse(event.target.result);
+                    if (Array.isArray(importedData)) {
+                        importedData.forEach(item => {
+                            if (!item.id) item.id = generateId();
+                            if (item.highlight === undefined) item.highlight = false;
+                            if (item.deliveredQuantity === undefined) item.deliveredQuantity = '0.0';
+                            if (!item.recordTime) item.recordTime = new Date().toISOString();
+                        });
+                        
+                        deliveries = [...deliveries, ...importedData];
+                        if (saveData()) {
+                            showNotification('数据导入成功', 'success');
+                            renderTable();
+                        }
+                    } else {
+                        showNotification('导入的数据格式不正确', 'error');
+                    }
+                } catch (error) {
+                    console.error('导入失败:', error);
+                    showNotification('导入失败，请检查文件格式', 'error');
+                }
+            };
+            reader.readAsText(file);
+            this.value = '';
+        });
+        
+        // 导入CSV
+        document.getElementById('importCSV').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const csvContent = event.target.result;
+                    const lines = csvContent.split('\n');
+                    const headers = lines[0].split(',').map(header => header.replace(/"/g, '').trim());
+                    
+                    const importedData = [];
+                    
+                    // 解析CSV行（考虑带引号的内容）
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue;
+                        
+                        // 处理CSV中的引号和逗号
+                        const values = [];
+                        let currentValue = '';
+                        let inQuotes = false;
+                        
+                        for (let j = 0; j < line.length; j++) {
+                            const char = line[j];
+                            if (char === '"') {
+                                if (line[j+1] === '"') {
+                                    // 处理双引号
+                                    currentValue += '"';
+                                    j++;
+                                } else {
+                                    inQuotes = !inQuotes;
+                                }
+                            } else if (char === ',' && !inQuotes) {
+                                values.push(currentValue.trim());
+                                currentValue = '';
+                            } else {
+                                currentValue += char;
+                            }
+                        }
+                        values.push(currentValue.trim());
+                        
+                        // 查找登记日期列的索引
+                        const recordDateIndex = headers.indexOf('登记日期');
+                        
+                        // 创建数据对象
+                        const item = {
+                            id: generateId(),
+                            customerName: values[0] || '',
+                            productName: values[1] || '',
+                            colorCode: values[2] || '',
+                            quantity: values[3] || '0.0',
+                            deliveredQuantity: values[4] || '0.0',
+                            deliveryDate: values[6] || new Date().toISOString().split('T')[0],
+                            notes: values[9] || '',
+                            highlight: false,
+                            // 如果CSV中包含登记日期，则使用它，否则使用当前日期
+                            recordTime: (recordDateIndex !== -1 && values[recordDateIndex]) 
+                                ? new Date(values[recordDateIndex]).toISOString() 
+                                : new Date().toISOString()
+                        };
+                        
+                        importedData.push(item);
+                    }
+                    
+                    if (importedData.length > 0) {
+                        deliveries = [...deliveries, ...importedData];
+                        if (saveData()) {
+                            showNotification(`成功导入 ${importedData.length} 条记录`, 'success');
+                            renderTable();
+                        }
+                    } else {
+                        showNotification('未找到有效数据', 'warning');
+                    }
+                } catch (error) {
+                    console.error('CSV导入失败:', error);
+                    showNotification('CSV导入失败，请检查文件格式', 'error');
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+            this.value = '';
+        });
+
+        // 增强的自动备份功能
+        function performBackup(showNotificationFlag = false) {
+            try {
+                // 备份到localStorage
+                localStorage.setItem('deliveries_backup', JSON.stringify(deliveries));
+                console.log('数据已自动备份到localStorage');
+                
+                // 每天自动导出一次备份文件（如果启用）
+                const lastBackupDate = localStorage.getItem('lastAutoExportDate');
+                const today = new Date().toDateString();
+                const autoExportEnabled = localStorage.getItem('autoExportEnabled') !== 'false'; // 默认启用
+                
+                if (autoExportEnabled && (!lastBackupDate || lastBackupDate !== today)) {
+                    // 自动导出备份文件
+                    const dataStr = JSON.stringify(deliveries, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    link.href = url;
+                    link.download = '交货数据自动备份_' + new Date().toISOString().split('T')[0] + '.json';
+                    document.body.appendChild(link);
+                    // 对于自动备份，不实际点击下载，只设置标志
+                    localStorage.setItem('lastAutoExportDate', today);
+                    document.body.removeChild(link);
+                    console.log('自动导出备份文件标记已设置');
+                }
+                
+                if (showNotificationFlag) {
+                    showNotification('数据备份成功', 'success');
+                }
+                return true;
+            } catch (error) {
+                console.error('备份失败:', error);
+                if (showNotificationFlag) {
+                    showNotification('备份失败', 'error');
+                }
+                return false;
+            }
+        }
+        
+        // 每30分钟自动备份
+        setInterval(() => {
+            performBackup();
+        }, 30 * 60 * 1000);
+
+        // 注意：已移除beforeunload事件监听器以确保Electron应用能够正常退出
+        // 自动备份功能已通过定期备份实现，无需在关闭时执行特殊操作
+        
+        // 初始化
+        handleResize();
+        window.addEventListener('resize', debounce(handleResize, 200));
+        loadData();
+        renderTable();
+        console.log('初始化完成');
+        
+        // 页面加载时执行一次备份
+        performBackup();
+    });
+    </script>
+</body>
 </html>
